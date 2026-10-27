@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MatriBeats - AI Maternal & Fetal ECG Dashboard</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        slate: {
+                            850: '#0f172a',
+                            900: '#0b0f19',
+                            950: '#05070e'
+                        },
+                        maternal: '#3b82f6',
+                        fetal: '#ec4899',
+                        composite: '#06b6d4'
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #080c14;
+            color: #f1f5f9;
+        }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .glass-card {
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .glow-cyan {
+            box-shadow: 0 0 20px -3px rgba(6, 182, 212, 0.35);
+        }
+        .glow-pink {
+            box-shadow: 0 0 20px -3px rgba(236, 72, 153, 0.35);
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between text-slate-100">
+
+    <!-- TOP NAVIGATION BAR -->
+    <header class="sticky top-0 z-50 glass-panel border-b border-slate-800 px-4 lg:px-8 py-3">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+            
+            <!-- Logo & Title -->
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-pink-500 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+                    <i class="fa-solid font-bold text-slate-950 text-xl">M</i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="font-extrabold text-xl tracking-tight bg-gradient-to-r from-cyan-400 via-pink-400 to-blue-400 bg-clip-text text-transparent">
+                            MatriBeats
+                        </h1>
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-mono">v1.2 AI-MVP</span>
+                    </div>
+                    <p class="text-xs text-slate-400">Non-Invasive Maternal & Fetal ECG Monitoring</p>
+                </div>
+            </div>
+
+            <!-- Team Badge -->
+            <div class="flex items-center gap-3 bg-slate-900/90 border border-slate-800 rounded-lg px-3 py-1.5">
+                <div class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
+                <div class="text-xs">
+                    <span class="text-slate-400">Team:</span> <strong class="text-slate-200 font-semibold">Helix and Hex</strong>
+                    <span class="text-slate-500 mx-1">|</span>
+                    <span class="text-cyan-300 font-medium">Sarah Thomas</span> &amp; <span class="text-pink-300 font-medium">Kadambari Sawant</span>
+                </div>
+            </div>
+
+            <!-- Quick Action & Nav Tabs -->
+            <div class="flex items-center gap-2">
+                <button onclick="switchTab('dashboard')" id="tab-dashboard" class="nav-btn px-3 py-1.5 text-xs font-semibold rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 transition-all">
+                    <i class="fa-solid fa-chart-line mr-1.5"></i>Live Studio
+                </button>
+                <button onclick="switchTab('pipeline')" id="tab-pipeline" class="nav-btn px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all">
+                    <i class="fa-solid fa-diagram-project mr-1.5"></i>AI Pipeline
+                </button>
+                <button onclick="switchTab('records')" id="tab-records" class="nav-btn px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all">
+                    <i class="fa-solid fa-folder-open mr-1.5"></i>Records
+                </button>
+                <button onclick="generateReport()" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white shadow-md transition-all flex items-center gap-1.5">
+                    <i class="fa-solid fa-file-pdf"></i> Report
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- RESEARCH TOOL NOTICE BANNER -->
+    <div class="bg-amber-500/10 border-b border-amber-500/20 px-4 py-1.5 text-center text-xs text-amber-300 font-medium flex items-center justify-center gap-2">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span><strong>Research Proof-of-Concept:</strong> MatriBeats is an educational screening prototype and is not clinically validated for direct diagnostic use.</span>
+    </div>
+
+    <!-- MAIN CONTENT CONTAINER -->
+    <main class="max-w-7xl mx-auto px-4 lg:px-8 py-6 flex-1 w-full">
+
+        <!-- ================= SECTION 1: LIVE DASHBOARD STUDIO ================= -->
+        <div id="section-dashboard" class="space-y-6">
+            
+            <!-- CONTROLS & DATASET SELECTOR HEADER -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
+                
+                <!-- Dataset Selectors -->
+                <div class="lg:col-span-7 glass-panel p-4 rounded-xl border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div class="flex items-center gap-2 w-full sm:w-auto">
+                        <i class="fa-solid fa-database text-cyan-400 text-sm"></i>
+                        <span class="text-xs font-semibold uppercase tracking-wider text-slate-300">Dataset Source:</span>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                        <button onclick="loadDataset('normal')" id="ds-normal" class="ds-btn active-ds px-3 py-1.5 text-xs font-medium rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
+                            Sample 1 (Normal)
+                        </button>
+                        <button onclick="loadDataset('tachycardia')" id="ds-tachycardia" class="ds-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-700">
+                            Sample 2 (Fetal Tachy)
+                        </button>
+                        <button onclick="loadDataset('noisy')" id="ds-noisy" class="ds-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-700">
+                            Sample 3 (Noise/Arrhythmia)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Signal Controls -->
+                <div class="lg:col-span-5 glass-panel p-4 rounded-xl border border-slate-800 flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-2">
+                        <button id="btn-play" onclick="toggleStream()" class="w-10 h-10 rounded-lg bg-cyan-500 text-slate-950 font-bold flex items-center justify-center hover:bg-cyan-400 transition-all shadow-lg shadow-cyan-500/20">
+                            <i id="play-icon" class="fa-solid fa-pause"></i>
+                        </button>
+                        <div class="text-xs">
+                            <div class="font-bold text-slate-200" id="stream-status">LIVE STREAMING</div>
+                            <div class="text-slate-400 font-mono text-[10px]" id="sample-rate">500 Hz Sampling</div>
+                        </div>
+                    </div>
+
+                    <!-- DSP Toggles -->
+                    <div class="flex items-center gap-3">
+                        <label class="flex items-center gap-1.5 cursor-pointer text-xs text-slate-300">
+                            <input type="checkbox" id="toggle-filter" checked onchange="updateDSP()" class="accent-cyan-500 rounded">
+                            <span>Bandpass Filter</span>
+                        </label>
+                        <label class="flex items-center gap-1.5 cursor-pointer text-xs text-slate-300">
+                            <input type="checkbox" id="toggle-ica" checked onchange="updateDSP()" class="accent-pink-500 rounded">
+                            <span>ICA Separation</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CLINICAL METRICS OVERVIEW STRIP -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                
+                <!-- Maternal HR Card -->
+                <div class="glass-panel p-4 rounded-xl border border-slate-800 flex items-center justify-between">
+                    <div>
+                        <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Maternal HR (mHR)</div>
+                        <div class="flex items-baseline gap-2 mt-1">
+                            <span class="text-3xl font-extrabold text-blue-400 font-mono" id="val-mhr">78</span>
+                            <span class="text-xs text-slate-400">BPM</span>
+                        </div>
+                        <div class="text-[11px] text-emerald-400 mt-1 flex items-center gap-1">
+                            <i class="fa-solid fa-circle-check"></i> Normal Rhythm (60-100)
+                        </div>
+                    </div>
+                    <div class="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+                        <i class="fa-solid fa-person-breastfeeding text-xl"></i>
+                    </div>
+                </div>
+
+                <!-- Fetal HR Card -->
+                <div class="glass-panel p-4 rounded-xl border border-slate-800 flex items-center justify-between">
+                    <div>
+                        <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Fetal HR (fHR)</div>
+                        <div class="flex items-baseline gap-2 mt-1">
+                            <span class="text-3xl font-extrabold text-pink-400 font-mono" id="val-fhr">142</span>
+                            <span class="text-xs text-slate-400">BPM</span>
+                        </div>
+                        <div class="text-[11px] text-emerald-400 mt-1 flex items-center gap-1" id="fhr-status">
+                            <i class="fa-solid fa-heart-pulse"></i> Normal Baseline (110-160)
+                        </div>
+                    </div>
+                    <div class="w-12 h-12 rounded-xl bg-pink-500/10 border border-pink-500/20 flex items-center justify-center text-pink-400">
+                        <i class="fa-solid fa-baby text-xl"></i>
+                    </div>
+                </div>
+
+                <!-- Risk Classification Badge -->
+                <div class="glass-panel p-4 rounded-xl border border-slate-800 flex items-center justify-between" id="card-risk">
+                    <div>
+                        <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Risk Classification</div>
+                        <div class="mt-1">
+                            <span id="badge-risk" class="px-2.5 py-1 rounded-md text-xs font-extrabold tracking-wide bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                NORMAL - LOW RISK
+                            </span>
+                        </div>
+                        <div class="text-[11px] text-slate-400 mt-2" id="risk-desc">Fetal cardiac rhythm stable</div>
+                    </div>
+                    <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400" id="icon-risk">
+                        <i class="fa-solid fa-shield-halved text-xl"></i>
+                    </div>
+                </div>
+
+                <!-- SQI Meter Card -->
+                <div class="glass-panel p-4 rounded-xl border border-slate-800 flex items-center justify-between">
+                    <div class="w-full">
+                        <div class="flex justify-between items-center text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                            <span>Signal Quality (SQI)</span>
+                            <span class="font-mono text-cyan-400" id="val-sqi">94%</span>
+                        </div>
+                        <div class="w-full bg-slate-800 h-2.5 rounded-full mt-2 overflow-hidden">
+                            <div id="bar-sqi" class="bg-cyan-400 h-full rounded-full transition-all duration-500" style="width: 94%;"></div>
+                        </div>
+                        <div class="text-[11px] text-slate-400 mt-2 flex justify-between">
+                            <span>Noise Floor: Low</span>
+                            <span>SNIR: +18 dB</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LIVE WAVEFORM VISUALIZERS (CANVAS TRACES) -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                <!-- Main Waveform Stack (2 Cols) -->
+                <div class="lg:col-span-2 space-y-4">
+                    
+                    <!-- Chart 1: Raw Abdominal Signal -->
+                    <div class="glass-panel p-4 rounded-xl border border-slate-800">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>
+                                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">Composite Abdominal Signal (mECG + fECG + Noise)</h3>
+                            </div>
+                            <span class="text-[10px] font-mono text-slate-500">Amplitude: ~1.5 mV</span>
+                        </div>
+                        <div class="h-32 w-full">
+                            <canvas id="chart-raw"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Chart 2: Extracted Maternal ECG -->
+                    <div class="glass-panel p-4 rounded-xl border border-slate-800">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+                                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">Separated Maternal Trace (mECG)</h3>
+                            </div>
+                            <span class="text-[10px] font-mono text-blue-400">R-Peaks Detected</span>
+                        </div>
+                        <div class="h-32 w-full">
+                            <canvas id="chart-maternal"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Chart 3: Extracted Fetal ECG -->
+                    <div class="glass-panel p-4 rounded-xl border border-slate-800">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2.5 h-2.5 rounded-full bg-pink-500 animate-pulse"></span>
+                                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">Isolated Weak Fetal Trace (fECG)</h3>
+                            </div>
+                            <span class="text-[10px] font-mono text-pink-400">fR-Peaks Amplified</span>
+                        </div>
+                        <div class="h-32 w-full">
+                            <canvas id="chart-fetal"></canvas>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Side Panel: Real-time HR Overlay & Clinical Recommendation -->
+                <div class="space-y-4">
+                    
+                    <!-- HR Comparison Overlay Chart -->
+                    <div class="glass-panel p-4 rounded-xl border border-slate-800">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300 mb-3 flex items-center gap-2">
+                            <i class="fa-solid fa-chart-line text-pink-400"></i> Dual Heart Rate Overlay Trend
+                        </h3>
+                        <div class="h-44 w-full">
+                            <canvas id="chart-hr-trend"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Clinical Action Recommendation Card -->
+                    <div class="glass-panel p-4 rounded-xl border border-slate-800 bg-slate-900/80">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-cyan-400 mb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-user-doctor"></i> Healthcare Guidance &amp; Protocols
+                        </h3>
+                        <div id="action-recommendation" class="text-xs text-slate-300 space-y-2 leading-relaxed">
+                            <p class="bg-slate-800/80 p-2.5 rounded-lg border border-slate-700/60">
+                                <strong class="text-emerald-400 block mb-1">Status Normal:</strong>
+                                Both Maternal and Fetal cardiac metrics are within standard physiological ranges. Continue regular prenatal monitoring protocol.
+                            </p>
+                        </div>
+                        
+                        <div class="mt-4 pt-3 border-t border-slate-800 flex justify-between items-center text-[11px] text-slate-400">
+                            <span>ASHA / Rural Healthcare Assist</span>
+                            <button onclick="triggerAlertModal()" class="text-xs text-cyan-400 hover:underline flex items-center gap-1">
+                                <i class="fa-solid fa-circle-info"></i> Triage Details
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- ================= SECTION 2: AI PIPELINE & ARCHITECTURE ================= -->
+        <div id="section-pipeline" class="hidden space-y-6">
+            
+            <div class="glass-panel p-6 rounded-xl border border-slate-800">
+                <div class="max-w-3xl">
+                    <h2 class="text-xl font-bold text-slate-100 mb-2">MatriBeats AI Architecture &amp; Signal Pipeline</h2>
+                    <p class="text-sm text-slate-400">
+                        How raw single/multi-lead abdominal biopotentials are filtered, unmixed using FastICA, and analyzed for dual-heart risk classification.
+                    </p>
+                </div>
+
+                <!-- Step Flow Visualizer -->
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mt-8">
+                    
+                    <!-- Step 1 -->
+                    <div class="glass-card p-4 rounded-xl border border-cyan-500/30 relative">
+                        <div class="w-8 h-8 rounded-lg bg-cyan-500/20 text-cyan-400 font-bold flex items-center justify-center text-sm mb-3">1</div>
+                        <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider">Abdominal Input</h3>
+                        <p class="text-[11px] text-slate-400 mt-2 leading-relaxed">
+                            Single composite signal contains high-power maternal ECG + attenuated fetal ECG + muscle noise.
+                        </p>
+                    </div>
+
+                    <!-- Step 2 -->
+                    <div class="glass-card p-4 rounded-xl border border-slate-700 relative">
+                        <div class="w-8 h-8 rounded-lg bg-slate-800 text-slate-300 font-bold flex items-center justify-center text-sm mb-3">2</div>
+                        <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider">DSP Preprocessing</h3>
+                        <p class="text-[11px] text-slate-400 mt-2 leading-relaxed">
+                            SciPy 0.5-45Hz Butterworth Bandpass filter removes baseline drift and 50/60Hz powerline interference.
+                        </p>
+                    </div>
+
+                    <!-- Step 3 -->
+                    <div class="glass-card p-4 rounded-xl border border-pink-500/30 relative">
+                        <div class="w-8 h-8 rounded-lg bg-pink-500/20 text-pink-400 font-bold flex items-center justify-center text-sm mb-3">3</div>
+                        <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider">ICA Separation</h3>
+                        <p class="text-[11px] text-slate-400 mt-2 leading-relaxed">
+                            FastICA (Blind Source Separation) decomposes independent source components to isolate mECG from fECG.
+                        </p>
+                    </div>
+
+                    <!-- Step 4 -->
+                    <div class="glass-card p-4 rounded-xl border border-slate-700 relative">
+                        <div class="w-8 h-8 rounded-lg bg-slate-800 text-slate-300 font-bold flex items-center justify-center text-sm mb-3">4</div>
+                        <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider">Peak &amp; HRV Extraction</h3>
+                        <p class="text-[11px] text-slate-400 mt-2 leading-relaxed">
+                            Pan-Tompkins adaptive peak detection identifies R-peaks and computes instantaneous BPM &amp; HRV.
+                        </p>
+                    </div>
+
+                    <!-- Step 5 -->
+                    <div class="glass-card p-4 rounded-xl border border-emerald-500/30 relative">
+                        <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 font-bold flex items-center justify-center text-sm mb-3">5</div>
+                        <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider">Risk Classifier</h3>
+                        <p class="text-[11px] text-slate-400 mt-2 leading-relaxed">
+                            Evaluates fetal baseline, variability, and maternal stress to generate real-time clinical alerts.
+                        </p>
+                    </div>
+
+                </div>
+
+                <!-- Signal Comparison Table -->
+                <div class="mt-8">
+                    <h3 class="text-sm font-bold text-slate-200 mb-4">Signal Separation Specifications</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs text-slate-300">
+                            <thead class="bg-slate-900 text-slate-400 uppercase font-semibold border-b border-slate-800">
+                                <tr>
+                                    <th class="p-3">Signal Component</th>
+                                    <th class="p-3">Amplitude Range</th>
+                                    <th class="p-3">Frequency Band</th>
+                                    <th class="p-3">Typical Heart Rate</th>
+                                    <th class="p-3">Extraction Method</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800/60">
+                                <tr>
+                                    <td class="p-3 font-semibold text-cyan-400">Composite Abdominal</td>
+                                    <td class="p-3 font-mono">1.0 – 3.5 mV</td>
+                                    <td class="p-3">0.05 – 100 Hz</td>
+                                    <td class="p-3">Combined</td>
+                                    <td class="p-3">Raw Electrode Recording</td>
+                                </tr>
+                                <tr>
+                                    <td class="p-3 font-semibold text-blue-400">Maternal ECG (mECG)</td>
+                                    <td class="p-3 font-mono">1.0 – 2.5 mV</td>
+                                    <td class="p-3">0.5 – 35 Hz</td>
+                                    <td class="p-3 font-mono">60 – 100 BPM</td>
+                                    <td class="p-3">Primary ICA / Template Subtraction</td>
+                                </tr>
+                                <tr>
+                                    <td class="p-3 font-semibold text-pink-400">Fetal ECG (fECG)</td>
+                                    <td class="p-3 font-mono">10 – 60 µV</td>
+                                    <td class="p-3">10 – 40 Hz</td>
+                                    <td class="p-3 font-mono">110 – 160 BPM</td>
+                                    <td class="p-3">Secondary ICA Component + Wavelet Denoiser</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- ================= SECTION 3: PATIENT RECORDS & AUDIO ================= -->
+        <div id="section-records" class="hidden space-y-6">
+            
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                <!-- Patient Metadata Card -->
+                <div class="glass-panel p-5 rounded-xl border border-slate-800 space-y-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 text-lg font-bold">
+                            P12
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-slate-100">Patient #4092-B</h3>
+                            <p class="text-xs text-slate-400">Gestational Age: 34 Weeks, 2 Days</p>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2 text-xs border-t border-slate-800 pt-3">
+                        <div class="flex justify-between text-slate-300">
+                            <span class="text-slate-500">Gravida / Para:</span>
+                            <span class="font-mono">G2 P1</span>
+                        </div>
+                        <div class="flex justify-between text-slate-300">
+                            <span class="text-slate-500">Maternal Blood Pressure:</span>
+                            <span class="font-mono">118 / 76 mmHg</span>
+                        </div>
+                        <div class="flex justify-between text-slate-300">
+                            <span class="text-slate-500">Recording Date:</span>
+                            <span class="font-mono">Oct 27, 2026</span>
+                        </div>
+                        <div class="flex justify-between text-slate-300">
+                            <span class="text-slate-500">Location:</span>
+                            <span>Community Health Center #4</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Record Log List -->
+                <div class="lg:col-span-2 glass-panel p-5 rounded-xl border border-slate-800 space-y-4">
+                    <h3 class="text-sm font-bold text-slate-200">Historical ECG Sessions</h3>
+                    
+                    <div class="space-y-2">
+                        <div class="p-3 rounded-lg bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <i class="fa-solid fa-file-wave text-cyan-400 text-lg"></i>
+                                <div>
+                                    <div class="text-xs font-bold text-slate-200">Session #1042 - Baseline Routine</div>
+                                    <div class="text-[10px] text-slate-400">PhysioNet Dataset nifecgdb / 20 min trace</div>
+                                </div>
+                            </div>
+                            <button onclick="loadDataset('normal')" class="px-3 py-1 text-xs rounded bg-slate-800 text-cyan-400 hover:bg-slate-700">
+                                Load Trace
+                            </button>
+                        </div>
+
+                        <div class="p-3 rounded-lg bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <i class="fa-solid fa-file-wave text-pink-400 text-lg"></i>
+                                <div>
+                                    <div class="text-xs font-bold text-slate-200">Session #1043 - Fetal Tachycardia Event</div>
+                                    <div class="text-[10px] text-slate-400">PhysioNet Dataset adfecgdb / 10 min trace</div>
+                                </div>
+                            </div>
+                            <button onclick="loadDataset('tachycardia')" class="px-3 py-1 text-xs rounded bg-slate-800 text-pink-400 hover:bg-slate-700">
+                                Load Trace
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="glass-panel border-t border-slate-800 mt-8 py-4 px-4 lg:px-8">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
+            <div>
+                <strong class="text-slate-200">MatriBeats</strong> — Developed by <span class="text-cyan-400">Team Helix and Hex</span> (Sarah Thomas &amp; Kadambari Sawant)
+            </div>
+            <div class="text-slate-500 text-[11px]">
+                Built for Innovation Hackathon Demo • Non-Invasive Cardiac Signal Extraction
+            </div>
+        </div>
+    </footer>
+
+    <!-- REPORT MODAL -->
+    <div id="report-modal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="glass-panel max-w-lg w-full p-6 rounded-2xl border border-slate-700 shadow-2xl relative space-y-4">
+            <button onclick="closeReportModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+            <div class="flex items-center gap-3 border-b border-slate-800 pb-3">
+                <i class="fa-solid fa-file-medical text-cyan-400 text-2xl"></i>
+                <div>
+                    <h3 class="font-bold text-slate-100">MatriBeats Diagnostic Summary</h3>
+                    <p class="text-xs text-slate-400">Exported Report • Team Helix and Hex</p>
+                </div>
+            </div>
+            <div class="space-y-2 text-xs text-slate-300">
+                <div class="p-3 bg-slate-900 rounded-lg space-y-1 font-mono">
+                    <div>Maternal BPM: <span class="text-blue-400 font-bold" id="rep-mhr">78</span></div>
+                    <div>Fetal BPM: <span class="text-pink-400 font-bold" id="rep-fhr">142</span></div>
+                    <div>Overall Risk: <span class="text-emerald-400 font-bold" id="rep-risk">NORMAL - LOW RISK</span></div>
+                    <div>SQI Confidence: <span class="text-cyan-400" id="rep-sqi">94%</span></div>
+                </div>
+                <p class="text-[11px] text-slate-400">
+                    This automated report encapsulates the separated ECG features extracted from the single abdominal recording channel.
+                </p>
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button onclick="closeReportModal()" class="px-4 py-2 text-xs rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700">Close</button>
+                <button onclick="alert('PDF Report summary downloaded successfully!')" class="px-4 py-2 text-xs rounded-lg bg-cyan-500 text-slate-950 font-bold hover:bg-cyan-400">Download PDF</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT SIMULATION LOGIC & CHART.JS ENGINE -->
+    <script>
+        // Global State variables
+        let isStreaming = true;
+        let animationFrameId = null;
+        let currentDataset = 'normal';
+        let isFilterOn = true;
+        let isIcaOn = true;
+
+        // Signal buffers (50 points visible window)
+        const BUFFER_SIZE = 60;
+        let rawBuffer = Array(BUFFER_SIZE).fill(0);
+        let maternalBuffer = Array(BUFFER_SIZE).fill(0);
+        let fetalBuffer = Array(BUFFER_SIZE).fill(0);
+        let mhrHistory = Array(20).fill(78);
+        let fhrHistory = Array(20).fill(142);
+        let timeIndex = 0;
+
+        // Chart References
+        let chartRaw, chartMaternal, chartFetal, chartHRTrend;
+
+        // Initialize Charts on Window Load
+        window.onload = function() {
+            initCharts();
+            startStreaming();
+        };
+
+        function initCharts() {
+            const labels = Array(BUFFER_SIZE).fill('');
+            const chartOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                scales: {
+                    x: { display: false },
+                    y: { 
+                        display: true, 
+                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                        ticks: { color: '#64748b', font: { size: 9 } }
+                    }
+                },
+                plugins: { legend: { display: false } },
+                elements: { point: { radius: 0 }, line: { borderWidth: 1.8 } }
+            };
+
+            // Raw Composite Signal Chart
+            chartRaw = new Chart(document.getElementById('chart-raw'), {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: rawBuffer,
+                        borderColor: '#06b6d4',
+                        backgroundColor: 'rgba(6, 182, 212, 0.1)',
+                        fill: true,
+                        tension: 0.1
+                    }]
+                },
+                options: chartOptions
+            });
+
+            // Maternal ECG Chart
+            chartMaternal = new Chart(document.getElementById('chart-maternal'), {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: maternalBuffer,
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        tension: 0.1
+                    }]
+                },
+                options: chartOptions
+            });
+
+            // Fetal ECG Chart
+            chartFetal = new Chart(document.getElementById('chart-fetal'), {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: fetalBuffer,
+                        borderColor: '#ec4899',
+                        backgroundColor: 'rgba(236, 72, 153, 0.1)',
+                        fill: true,
+                        tension: 0.1
+                    }]
+                },
+                options: chartOptions
+            });
+
+            // Dual Heart Rate Overlay Trend
+            chartHRTrend = new Chart(document.getElementById('chart-hr-trend'), {
+                type: 'line',
+                data: {
+                    labels: Array(20).fill(''),
+                    datasets: [
+                        {
+                            label: 'Fetal HR (fHR)',
+                            data: fhrHistory,
+                            borderColor: '#ec4899',
+                            borderWidth: 2,
+                            tension: 0.3
+                        },
+                        {
+                            label: 'Maternal HR (mHR)',
+                            data: mhrHistory,
+                            borderColor: '#3b82f6',
+                            borderWidth: 2,
+                            tension: 0.3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    scales: {
+                        x: { display: false },
+                        y: { 
+                            min: 50, 
+                            max: 200, 
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#94a3b8', font: { size: 10 } }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            labels: { color: '#cbd5e1', font: { size: 10 } }
+                        }
+                    },
+                    elements: { point: { radius: 0 } }
+                }
+            });
+        }
+
+        // Generate synthetic ECG wave (QRS complex simulator)
+        function generateECGPoint(t, bpm, amplitude = 1.0) {
+            const period = (60 / bpm) * 50; // Points per beat
+            const phase = (t % period) / period;
+            
+            // Baseline noise
+            let val = (Math.random() - 0.5) * 0.05;
+
+            // P-Wave
+            if (phase > 0.1 && phase < 0.2) val += Math.sin((phase - 0.1) * Math.PI / 0.1) * 0.1 * amplitude;
+            // QRS Complex
+            else if (phase >= 0.35 && phase < 0.38) val -= 0.15 * amplitude; // Q
+            else if (phase >= 0.38 && phase < 0.42) val += 1.2 * amplitude;  // R Peak
+            else if (phase >= 0.42 && phase < 0.45) val -= 0.25 * amplitude; // S
+            // T-Wave
+            else if (phase > 0.55 && phase < 0.7) val += Math.sin((phase - 0.55) * Math.PI / 0.15) * 0.2 * amplitude;
+
+            return val;
+        }
+
+        // Live Animation Loop
+        function animateStream() {
+            if (!isStreaming) return;
+
+            timeIndex++;
+
+            // Dataset specific physiological parameters
+            let mBPM = 78;
+            let fBPM = 142;
+            let noiseAmp = 0.05;
+
+            if (currentDataset === 'tachycardia') {
+                fBPM = 175; // Fetal tachycardia (>160)
+            } else if (currentDataset === 'noisy') {
+                mBPM = 92;
+                fBPM = 138;
+                noiseAmp = 0.45; // Elevated noise / baseline drift
+            }
+
+            // Compute underlying source signals
+            let mECGVal = generateECGPoint(timeIndex, mBPM, 1.0);
+            let fECGVal = generateECGPoint(timeIndex, fBPM, 0.25); // fECG is ~1/4 amplitude of mECG
+
+            // Composite raw signal
+            let rawVal = mECGVal + fECGVal + (Math.random() - 0.5) * noiseAmp;
+
+            // Apply DSP filter simulation
+            let displayMaternal = isIcaOn ? mECGVal : rawVal * 0.8;
+            let displayFetal = isIcaOn ? fECGVal : (rawVal - mECGVal * 0.7);
+
+            if (!isFilterOn) {
+                // Add unfiltered baseline wander
+                const wander = Math.sin(timeIndex * 0.05) * 0.6;
+                rawVal += wander;
+                displayMaternal += wander;
+                displayFetal += wander * 0.5;
+            }
+
+            // Push to rolling buffers
+            rawBuffer.shift(); rawBuffer.push(rawVal);
+            maternalBuffer.shift(); maternalBuffer.push(displayMaternal);
+            fetalBuffer.shift(); fetalBuffer.push(displayFetal);
+
+            // Update Charts
+            chartRaw.data.datasets[0].data = rawBuffer;
+            chartMaternal.data.datasets[0].data = maternalBuffer;
+            chartFetal.data.datasets[0].data = fetalBuffer;
+
+            chartRaw.update('none');
+            chartMaternal.update('none');
+            chartFetal.update('none');
+
+            // Periodically update trend chart & UI numbers (every 10 frames)
+            if (timeIndex % 10 === 0) {
+                mhrHistory.shift(); mhrHistory.push(mBPM + Math.floor((Math.random() - 0.5) * 3));
+                fhrHistory.shift(); fhrHistory.push(fBPM + Math.floor((Math.random() - 0.5) * 4));
+
+                chartHRTrend.data.datasets[0].data = fhrHistory;
+                chartHRTrend.data.datasets[1].data = mhrHistory;
+                chartHRTrend.update('none');
+
+                document.getElementById('val-mhr').innerText = mBPM;
+                document.getElementById('val-fhr').innerText = fBPM;
+
+                updateClinicalAlerts(mBPM, fBPM);
+            }
+
+            animationFrameId = requestAnimationFrame(animateStream);
+        }
+
+        function startStreaming() {
+            isStreaming = true;
+            document.getElementById('play-icon').className = 'fa-solid fa-pause';
+            document.getElementById('stream-status').innerText = 'LIVE STREAMING';
+            animateStream();
+        }
+
+        function toggleStream() {
+            if (isStreaming) {
+                isStreaming = false;
+                cancelAnimationFrame(animationFrameId);
+                document.getElementById('play-icon').className = 'fa-solid fa-play';
+                document.getElementById('stream-status').innerText = 'STREAM PAUSED';
+            } else {
+                startStreaming();
+            }
+        }
+
+        function loadDataset(name) {
+            currentDataset = name;
+            
+            // Highlight buttons
+            document.querySelectorAll('.ds-btn').forEach(btn => {
+                btn.className = 'ds-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-700';
+            });
+            document.getElementById('ds-' + name).className = 'ds-btn active-ds px-3 py-1.5 text-xs font-medium rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/40';
+
+            // SQI Adjustment
+            if (name === 'normal') {
+                document.getElementById('val-sqi').innerText = '94%';
+                document.getElementById('bar-sqi').style.width = '94%';
+            } else if (name === 'tachycardia') {
+                document.getElementById('val-sqi').innerText = '88%';
+                document.getElementById('bar-sqi').style.width = '88%';
+            } else if (name === 'noisy') {
+                document.getElementById('val-sqi').innerText = '62%';
+                document.getElementById('bar-sqi').style.width = '62%';
+            }
+        }
+
+        function updateDSP() {
+            isFilterOn = document.getElementById('toggle-filter').checked;
+            isIcaOn = document.getElementById('toggle-ica').checked;
+        }
+
+        function updateClinicalAlerts(mBPM, fBPM) {
+            const riskBadge = document.getElementById('badge-risk');
+            const riskDesc = document.getElementById('risk-desc');
+            const fhrStatus = document.getElementById('fhr-status');
+            const recBox = document.getElementById('action-recommendation');
+
+            if (fBPM > 160) {
+                // Tachycardia
+                riskBadge.className = 'px-2.5 py-1 rounded-md text-xs font-extrabold tracking-wide bg-pink-500/20 text-pink-300 border border-pink-500/30';
+                riskBadge.innerText = 'ALERT - FETAL TACHYCARDIA';
+                riskDesc.innerText = 'Fetal heart rate elevated (>160 BPM)';
+                fhrStatus.className = 'text-[11px] text-pink-400 mt-1 flex items-center gap-1';
+                fhrStatus.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Baseline Tachycardia (>160 BPM)';
+
+                recBox.innerHTML = `
+                    <p class="bg-pink-950/40 p-2.5 rounded-lg border border-pink-800/60 text-pink-200">
+                        <strong class="text-pink-400 block mb-1"><i class="fa-solid fa-triangle-exclamation"></i> Triage Protocol:</strong>
+                        Elevated fetal baseline detected (${fBPM} BPM). Reposition mother to left lateral decubitus, administer hydration/oxygen if indicated, and arrange secondary ultrasound CTG verification.
+                    </p>
+                `;
+            } else if (currentDataset === 'noisy') {
+                // Mild Warning
+                riskBadge.className = 'px-2.5 py-1 rounded-md text-xs font-extrabold tracking-wide bg-amber-500/20 text-amber-300 border border-amber-500/30';
+                riskBadge.innerText = 'WATCH - BASELINE NOISE';
+                riskDesc.innerText = 'Electrode noise interfering with fECG';
+                
+                recBox.innerHTML = `
+                    <p class="bg-amber-950/40 p-2.5 rounded-lg border border-amber-800/60 text-amber-200">
+                        <strong class="text-amber-400 block mb-1">Signal Inspection Required:</strong>
+                        Electrode impedance or maternal movement detected. Re-gel abdominal leads and re-run ICA separation.
+                    </p>
+                `;
+            } else {
+                // Normal
+                riskBadge.className = 'px-2.5 py-1 rounded-md text-xs font-extrabold tracking-wide bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+                riskBadge.innerText = 'NORMAL - LOW RISK';
+                riskDesc.innerText = 'Fetal cardiac rhythm stable';
+                fhrStatus.className = 'text-[11px] text-emerald-400 mt-1 flex items-center gap-1';
+                fhrStatus.innerHTML = '<i class="fa-solid fa-heart-pulse"></i> Normal Baseline (110-160)';
+
+                recBox.innerHTML = `
+                    <p class="bg-slate-800/80 p-2.5 rounded-lg border border-slate-700/60">
+                        <strong class="text-emerald-400 block mb-1">Status Normal:</strong>
+                        Both Maternal and Fetal cardiac metrics are within standard physiological ranges. Continue regular prenatal monitoring protocol.
+                    </p>
+                `;
+            }
+        }
+
+        // Tab Navigation
+        function switchTab(tabId) {
+            document.getElementById('section-dashboard').classList.add('hidden');
+            document.getElementById('section-pipeline').classList.add('hidden');
+            document.getElementById('section-records').classList.add('hidden');
+
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.className = 'nav-btn px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all';
+            });
+
+            document.getElementById('section-' + tabId).classList.remove('hidden');
+            document.getElementById('tab-' + tabId).className = 'nav-btn px-3 py-1.5 text-xs font-semibold rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 transition-all';
+        }
+
+        // Report Modal Controls
+        function generateReport() {
+            document.getElementById('rep-mhr').innerText = document.getElementById('val-mhr').innerText + ' BPM';
+            document.getElementById('rep-fhr').innerText = document.getElementById('val-fhr').innerText + ' BPM';
+            document.getElementById('rep-risk').innerText = document.getElementById('badge-risk').innerText;
+            document.getElementById('rep-sqi').innerText = document.getElementById('val-sqi').innerText;
+            document.getElementById('report-modal').classList.remove('hidden');
+        }
+
+        function closeReportModal() {
+            document.getElementById('report-modal').classList.add('hidden');
+        }
+
+        function triggerAlertModal() {
+            generateReport();
+        }
+    </script>
+</body>
+</html>
